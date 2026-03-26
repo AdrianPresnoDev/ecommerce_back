@@ -1,0 +1,65 @@
+version: "3.8"
+name: ecommerce-dev
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ecommerce-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ecommerce
+      MYSQL_USER: ecommerce
+      MYSQL_PASSWORD: ecommerce
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -proot --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [ecommerce-net]
+
+  ecommerce-api:
+    image: 956403430780.dkr.ecr.eu-west-1.amazonaws.com/ecommerce-api:dev-latest
+    container_name: ecommerce-api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    env_file: .env.docker
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ecommerce
+      DB_PASSWORD: ecommerce
+      DB_NAME: ecommerce
+      ADMIN_API_KEY: dev-admin
+      JWT_SECRET: dev-secret
+      # STRIPE_SECRET_KEY: sobreescribir en Portainer
+      # ADMIN_NOTIFY_EMAIL: sobreescribir en Portainer
+      # SMTP_*: sobreescribir en Portainer
+    ports:
+      - "3001:5000"
+    networks: [ecommerce-net]
+
+  gateway:
+    image: 956403430780.dkr.ecr.eu-west-1.amazonaws.com/ecommerce-gateway:dev-latest
+    container_name: ecommerce-gateway
+    restart: unless-stopped
+    depends_on:
+      - ecommerce-api
+    ports:
+      - "8082:8080"
+    networks: [ecommerce-net]
+
+volumes:
+  mysql_data:
+
+networks:
+  ecommerce-net:
+    driver: bridge

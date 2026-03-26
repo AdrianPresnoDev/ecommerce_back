@@ -1,0 +1,129 @@
+name: Build & Push DEV images
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-west-1
+  ECR_REGISTRY: 956403430780.dkr.ecr.eu-west-1.amazonaws.com
+  ECR_REPO_API: ecommerce-api
+  ECR_REPO_GATEWAY: ecommerce-gateway
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # Usar el mismo rol que recetas, o crear ecommerce-github-oidc
+          # y añadir este repo en la trust policy
+          role-to-assume: arn:aws:iam::956403430780:role/recetas-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push API image
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPO_API:dev-latest \
+                        -t $ECR_REGISTRY/$ECR_REPO_API:dev-${{ github.sha }} .
+          docker push $ECR_REGISTRY/$ECR_REPO_API:dev-latest
+          docker push $ECR_REGISTRY/$ECR_REPO_API:dev-${{ github.sha }}
+
+      - name: Build & push Gateway image
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPO_GATEWAY:dev-latest \
+                        -t $ECR_REGISTRY/$ECR_REPO_GATEWAY:dev-${{ github.sha }} \
+                        -f nginx/gateway.Dockerfile nginx/
+          docker push $ECR_REGISTRY/$ECR_REPO_GATEWAY:dev-latest
+          docker push $ECR_REGISTRY/$ECR_REPO_GATEWAY:dev-${{ github.sha }}
+
+  deploy-dev:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for compose env sync)
+        uses: actions/checkout@v4
+
+      - name: Get fresh ECR token
+        id: ecr-token
+        run: |
+          TOKEN=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_DEPLOY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEPLOY }}
+
+      - name: Login to Portainer
+        id: portainer-auth
+        run: |
+          JWT=$(curl -sk -X POST "${{ secrets.PORTAINER_URL }}/api/auth" \
+            -H "Content-Type: application/json" \
+            -d '{"Username":"${{ secrets.PORTAINER_USER }}","Password":"${{ secrets.PORTAINER_PASSWORD }}"}' \
+            | jq -r '.jwt')
+          echo "::add-mask::$JWT"
+          echo "jwt=$JWT" >> $GITHUB_OUTPUT
+
+      - name: Update ECR registry credentials in Portainer
+        run: |
+          curl -sk -X PUT \
+            -H "Authorization: Bearer ${{ steps.portainer-auth.outputs.jwt }}" \
+            -H "Content-Type: application/json" \
+            -d '{"Name":"aws-ecr-dev","Type":3,"URL":"956403430780.dkr.ecr.eu-west-1.amazonaws.com","Authentication":true,"Username":"AWS","Password":"${{ steps.ecr-token.outputs.token }}"}' \
+            "${{ secrets.PORTAINER_URL }}/api/registries/${{ secrets.PORTAINER_ECR_REGISTRY_ID }}"
+
+      - name: Prune unused Docker images (free disk space)
+        run: |
+          HTTP_CODE=$(curl -sk -X POST \
+            -H "Authorization: Bearer ${{ steps.portainer-auth.outputs.jwt }}" \
+            -H "Content-Type: application/json" \
+            -w "%{http_code}" -o /tmp/prune.json \
+            "${{ secrets.PORTAINER_URL }}/api/endpoints/${{ secrets.PORTAINER_ENDPOINT_ID }}/docker/images/prune")
+          if [ "$HTTP_CODE" = "200" ]; then
+            RECLAIMED=$(jq '.SpaceReclaimed // 0' /tmp/prune.json)
+            RECLAIMED_MB=$((RECLAIMED / 1024 / 1024))
+            echo "Pruned: ${RECLAIMED_MB} MB freed"
+          else
+            echo "Image prune returned $HTTP_CODE (EC2 may be off, continuing...)"
+          fi
+
+      - name: Download current Portainer compose
+        run: |
+          curl -sk \
+            -H "Authorization: Bearer ${{ steps.portainer-auth.outputs.jwt }}" \
+            "${{ secrets.PORTAINER_URL }}/api/stacks/${{ secrets.PORTAINER_STACK_ID }}/file" \
+            | jq -r '.StackFileContent' > /tmp/compose.yml
+          echo "Compose retrieved ($(wc -l < /tmp/compose.yml) lines)"
+
+      - name: Redeploy stack to Portainer
+        run: |
+          jq -n --rawfile compose /tmp/compose.yml \
+            '{"StackFileContent":$compose,"Prune":true,"PullImage":true}' > /tmp/body.json
+          HTTP_CODE=$(curl -sk -X PUT \
+            -H "Authorization: Bearer ${{ steps.portainer-auth.outputs.jwt }}" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/body.json \
+            -w "%{http_code}" -o /tmp/result.json \
+            --connect-timeout 10 \
+            "${{ secrets.PORTAINER_URL }}/api/stacks/${{ secrets.PORTAINER_STACK_ID }}?endpointId=${{ secrets.PORTAINER_ENDPOINT_ID }}")
+          echo "Portainer response: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Deploy successful"
+          elif [ "$HTTP_CODE" = "000" ]; then
+            echo "WARNING: Could not connect to Portainer (EC2 may be off)"
+          else
+            echo "ERROR: Portainer redeploy failed with HTTP $HTTP_CODE"
+            cat /tmp/result.json
+            exit 1
+          fi

@@ -1,0 +1,39 @@
+name: Promote DEV images to PROD
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-west-1
+  ECR_REGISTRY: 956403430780.dkr.ecr.eu-west-1.amazonaws.com
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::956403430780:role/recetas-github-oidc
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Retag API dev-latest → prod-latest
+        run: |
+          MANIFEST=$(aws ecr batch-get-image --repository-name ecommerce-api \
+            --image-ids imageTag=dev-latest --query 'images[0].imageManifest' --output text)
+          aws ecr put-image --repository-name ecommerce-api \
+            --image-tag prod-latest --image-manifest "$MANIFEST"
+
+      - name: Retag Gateway dev-latest → prod-latest
+        run: |
+          MANIFEST=$(aws ecr batch-get-image --repository-name ecommerce-gateway \
+            --image-ids imageTag=dev-latest --query 'images[0].imageManifest' --output text)
+          aws ecr put-image --repository-name ecommerce-gateway \
+            --image-tag prod-latest --image-manifest "$MANIFEST"

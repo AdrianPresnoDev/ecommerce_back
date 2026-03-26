@@ -1,0 +1,65 @@
+// apps/ecommerce-api/index.js
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env') });
+
+import { createServer } from './server.js';
+import { banner, ok } from './app.js';
+import { sequelize } from '../../src/interfaces/db/mysql-client.js';
+
+import { initUserModel } from '../../src/contexts/users/infrastructure/persistence/user.model.js';
+import { initPaintingModel } from '../../src/contexts/paintings/infrastructure/persistence/painting.model.js';
+import { initOfferModel } from '../../src/contexts/offers/infrastructure/persistence/offer.model.js';
+import { initOrderModel } from '../../src/contexts/orders/infrastructure/persistence/order.model.js';
+
+async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
+  for (let i = 1; i <= maxRetries; i++) {
+    try {
+      await sequelize.authenticate();
+      return;
+    } catch (err) {
+      console.error(`[api] Intento ${i}/${maxRetries} fallido: ${err.message}`);
+      if (i === maxRetries) throw err;
+      console.log(`[api] Reintentando en ${delayMs / 1000}s…`);
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+}
+
+(async () => {
+  try {
+    const doAlter = String(process.env.DB_ALTER ?? '0') === '1';
+    const port = Number(process.env.PORT ?? 5000);
+
+    console.log('[api] Conectando a DB…');
+    await connectWithRetry();
+
+    // Inicializar modelos
+    initUserModel(sequelize);
+    initPaintingModel(sequelize);
+    initOfferModel(sequelize);
+    initOrderModel(sequelize);
+
+    // Relaciones
+    const { User, Painting, Offer, Order } = sequelize.models;
+    Offer.belongsTo(Painting, { foreignKey: 'paintingId', as: 'painting' });
+    Order.belongsTo(Painting, { foreignKey: 'paintingId', as: 'painting' });
+    Order.belongsTo(Offer, { foreignKey: 'offerId', as: 'offer' });
+
+    console.log(`[api] Sincronizando modelos (alter=${doAlter})…`);
+    await sequelize.sync(doAlter ? { alter: true } : undefined);
+
+    ok('DB conectada y sincronizada');
+
+    const app = createServer();
+    app.listen(port, () => {
+      banner(`Servidor listo → http://localhost:${port}`);
+    });
+  } catch (e) {
+    console.error('[api] Error al arrancar:', e);
+    process.exit(1);
+  }
+})();
