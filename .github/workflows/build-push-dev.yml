@@ -83,20 +83,19 @@ jobs:
             -d '{"Name":"aws-ecr-dev","Type":3,"URL":"956403430780.dkr.ecr.eu-west-1.amazonaws.com","Authentication":true,"Username":"AWS","Password":"${{ steps.ecr-token.outputs.token }}"}' \
             "${{ secrets.PORTAINER_URL }}/api/registries/${{ secrets.PORTAINER_ECR_REGISTRY_ID }}"
 
-      - name: Prune unused Docker images (free disk space)
+      - name: Pull only ecommerce images on EC2 (avoids re-pulling mysql/livekit)
         run: |
-          HTTP_CODE=$(curl -sk -X POST \
-            -H "Authorization: Bearer ${{ steps.portainer-auth.outputs.jwt }}" \
-            -H "Content-Type: application/json" \
-            -w "%{http_code}" -o /tmp/prune.json \
-            "${{ secrets.PORTAINER_URL }}/api/endpoints/${{ secrets.PORTAINER_ENDPOINT_ID }}/docker/images/prune")
-          if [ "$HTTP_CODE" = "200" ]; then
-            RECLAIMED=$(jq '.SpaceReclaimed // 0' /tmp/prune.json)
-            RECLAIMED_MB=$((RECLAIMED / 1024 / 1024))
-            echo "Pruned: ${RECLAIMED_MB} MB freed"
-          else
-            echo "Image prune returned $HTTP_CODE (EC2 may be off, continuing...)"
-          fi
+          for IMAGE in "$ECR_REGISTRY/$ECR_REPO_API:dev-latest" "$ECR_REGISTRY/$ECR_REPO_GATEWAY:dev-latest"; do
+            BODY=$(jq -n --arg img "$IMAGE" '{"fromImage":$img}')
+            # X-Registry-Auth: base64({"username":"AWS","password":"<ecr-token>","serveraddress":"<registry>"})
+            AUTH=$(echo "{\"username\":\"AWS\",\"password\":\"${{ steps.ecr-token.outputs.token }}\",\"serveraddress\":\"$ECR_REGISTRY\"}" | base64 -w 0)
+            HTTP_CODE=$(curl -sk -X POST \
+              -H "Authorization: Bearer ${{ steps.portainer-auth.outputs.jwt }}" \
+              -H "X-Registry-Auth: $AUTH" \
+              -w "%{http_code}" -o /tmp/pull.json \
+              "${{ secrets.PORTAINER_URL }}/api/endpoints/${{ secrets.PORTAINER_ENDPOINT_ID }}/docker/images/create?fromImage=$IMAGE")
+            echo "Pull $IMAGE: HTTP $HTTP_CODE"
+          done
 
       - name: Download current Portainer compose
         run: |
@@ -108,8 +107,9 @@ jobs:
 
       - name: Redeploy stack to Portainer
         run: |
+          # PullImage:false porque ya hemos descargado solo las imágenes nuevas arriba
           jq -n --rawfile compose /tmp/compose.yml \
-            '{"StackFileContent":$compose,"Prune":true,"PullImage":true}' > /tmp/body.json
+            '{"StackFileContent":$compose,"Prune":true,"PullImage":false}' > /tmp/body.json
           HTTP_CODE=$(curl -sk -X PUT \
             -H "Authorization: Bearer ${{ steps.portainer-auth.outputs.jwt }}" \
             -H "Content-Type: application/json" \
