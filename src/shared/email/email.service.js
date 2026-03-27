@@ -1,5 +1,6 @@
 // src/shared/email/email.service.js
 import nodemailer from 'nodemailer';
+import { sequelize } from '../../interfaces/db/mysql-client.js';
 
 function createTransport() {
   return nodemailer.createTransport({
@@ -102,6 +103,79 @@ export async function sendOfferResponseEmail({ offer, painting }) {
     subject: template.subject,
     html: template.body,
   });
+}
+
+// ─── Notificaciones a suscriptores ────────────────────────────────────────────
+
+async function getAllSubscriberEmails() {
+  const { Subscriber } = sequelize.models;
+  if (!Subscriber) return [];
+  const rows = await Subscriber.findAll({ attributes: ['email'] });
+  return rows.map(r => r.email);
+}
+
+/**
+ * Avisa a todos los suscriptores de que se ha añadido una nueva obra.
+ */
+export async function notifySubscribersNewPainting(painting) {
+  const emails = await getAllSubscriberEmails();
+  if (!emails.length) return;
+
+  const galleryUrl = `${process.env.APP_BASE_URL || ''}/paintings/${painting.id}`;
+  const html = `
+    <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;">
+      <h1 style="font-size:28px;margin-bottom:8px;">Nueva obra disponible</h1>
+      <h2 style="font-size:22px;color:#444;font-weight:normal;margin-top:0;">${painting.title}</h2>
+      ${painting.category ? `<p style="color:#888;margin:4px 0;">${painting.category}</p>` : ''}
+      ${painting.technique ? `<p style="color:#888;margin:4px 0;">${painting.technique}${painting.dimensions ? ` · ${painting.dimensions}` : ''}</p>` : ''}
+      <p style="font-size:24px;font-weight:bold;margin:16px 0;">€${Number(painting.price).toLocaleString('es-ES')}</p>
+      ${painting.description ? `<p style="color:#555;line-height:1.6;">${painting.description}</p>` : ''}
+      <a href="${galleryUrl}" style="display:inline-block;margin-top:20px;background:#000;color:#fff;padding:14px 32px;text-decoration:none;border-radius:999px;font-family:sans-serif;font-weight:600;">
+        Ver obra
+      </a>
+      <hr style="margin:40px 0;border:none;border-top:1px solid #eee;" />
+      <p style="font-size:12px;color:#aaa;font-family:sans-serif;">
+        Recibes este email porque te suscribiste a las novedades de Inma Álvarez.
+      </p>
+    </div>
+  `;
+
+  for (const email of emails) {
+    await send({ to: email, subject: `Nueva obra: "${painting.title}" | Inma Álvarez`, html }).catch(() => {});
+  }
+  console.log(`[email] Notificación "nueva obra" enviada a ${emails.length} suscriptores`);
+}
+
+/**
+ * Avisa a todos los suscriptores de que una obra ha sido vendida.
+ */
+export async function notifySubscribersPaintingSold(painting) {
+  const emails = await getAllSubscriberEmails();
+  if (!emails.length) return;
+
+  const galleryUrl = `${process.env.APP_BASE_URL || ''}/`;
+  const html = `
+    <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;">
+      <h1 style="font-size:28px;margin-bottom:8px;">Obra vendida</h1>
+      <h2 style="font-size:22px;color:#444;font-weight:normal;margin-top:0;">"${painting.title}"</h2>
+      <p style="color:#555;line-height:1.6;">
+        Esta obra acaba de encontrar su nuevo hogar. Si te gustaba, sigue explorando la galería —
+        Inma está preparando nuevas piezas constantemente.
+      </p>
+      <a href="${galleryUrl}" style="display:inline-block;margin-top:20px;background:#000;color:#fff;padding:14px 32px;text-decoration:none;border-radius:999px;font-family:sans-serif;font-weight:600;">
+        Explorar galería
+      </a>
+      <hr style="margin:40px 0;border:none;border-top:1px solid #eee;" />
+      <p style="font-size:12px;color:#aaa;font-family:sans-serif;">
+        Recibes este email porque te suscribiste a las novedades de Inma Álvarez.
+      </p>
+    </div>
+  `;
+
+  for (const email of emails) {
+    await send({ to: email, subject: `Obra vendida: "${painting.title}" | Inma Álvarez`, html }).catch(() => {});
+  }
+  console.log(`[email] Notificación "obra vendida" enviada a ${emails.length} suscriptores`);
 }
 
 /**

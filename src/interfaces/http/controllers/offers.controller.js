@@ -1,5 +1,6 @@
 // src/interfaces/http/controllers/offers.controller.js
 import * as offersService from '../../../contexts/offers/application/services/offers.service.js';
+import { notifySubscribersPaintingSold } from '../../../shared/email/email.service.js';
 
 // ─── Público ──────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,14 @@ export async function adminRespondToOffer(req, res) {
       sellerNote,
       counterPrice: counterPrice ? Number(counterPrice) : undefined,
     });
+
+    // Si se acepta la oferta, la obra queda vendida → notificar suscriptores
+    if (action === 'accept' && offer.painting) {
+      notifySubscribersPaintingSold(offer.painting).catch(err =>
+        console.error('[notify] Error notificando obra vendida (oferta):', err.message)
+      );
+    }
+
     return res.json(offer);
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message });

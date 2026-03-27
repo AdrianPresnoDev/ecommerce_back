@@ -1,5 +1,6 @@
 // src/interfaces/http/controllers/paintings.controller.js
 import * as paintingsService from '../../../contexts/paintings/application/services/paintings.service.js';
+import { notifySubscribersNewPainting, notifySubscribersPaintingSold } from '../../../shared/email/email.service.js';
 
 // ─── Público ──────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,14 @@ export async function adminCreatePainting(req, res) {
       sortOrder: sortOrder ?? 0,
       active: active ?? true,
     });
+
+    // Notificar a suscriptores si la obra se publica activa
+    if (painting.active !== false) {
+      notifySubscribersNewPainting(painting).catch(err =>
+        console.error('[notify] Error notificando nueva obra:', err.message)
+      );
+    }
+
     return res.status(201).json(painting);
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message });
@@ -69,7 +78,21 @@ export async function adminUpdatePainting(req, res) {
     for (const key of allowed) {
       if (req.body[key] !== undefined) data[key] = req.body[key];
     }
+
+    // Capturar estado previo para detectar transición a "sold"
+    const previous = data.status === 'sold'
+      ? await paintingsService.getPainting(req.params.id)
+      : null;
+
     const painting = await paintingsService.updatePainting(req.params.id, data);
+
+    // Notificar si acaba de marcarse como vendida
+    if (previous && previous.status !== 'sold' && painting.status === 'sold') {
+      notifySubscribersPaintingSold(painting).catch(err =>
+        console.error('[notify] Error notificando obra vendida:', err.message)
+      );
+    }
+
     return res.json(painting);
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message });
