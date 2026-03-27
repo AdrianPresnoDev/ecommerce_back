@@ -105,6 +105,56 @@ export async function sendOfferResponseEmail({ offer, painting }) {
 }
 
 /**
+ * Mensaje de contacto general desde el formulario de la web.
+ */
+export async function sendContactEmail({ name, email, phone, message }) {
+  const adminEmail = process.env.ADMIN_NOTIFY_EMAIL;
+  if (!adminEmail) return;
+
+  await send({
+    to: adminEmail,
+    subject: `Nuevo mensaje de contacto de ${name}`,
+    html: `
+      <h2>Nuevo mensaje de contacto</h2>
+      <p><strong>Nombre:</strong> ${name}</p>
+      <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+      ${phone ? `<p><strong>Teléfono:</strong> ${phone}</p>` : ''}
+      <hr />
+      <p><strong>Mensaje:</strong></p>
+      <p>${message.replace(/\n/g, '<br />')}</p>
+    `,
+  });
+}
+
+/**
+ * Solicitud de obra personalizada.
+ */
+export async function sendCustomOrderEmail({ name, email, phone, artworkType, dimensions, colorPreferences, budget, description, timeline }) {
+  const adminEmail = process.env.ADMIN_NOTIFY_EMAIL;
+  if (!adminEmail) return;
+
+  await send({
+    to: adminEmail,
+    subject: `Nueva solicitud de obra personalizada de ${name}`,
+    html: `
+      <h2>Solicitud de Obra Personalizada</h2>
+      <p><strong>Nombre:</strong> ${name}</p>
+      <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+      ${phone ? `<p><strong>Teléfono:</strong> ${phone}</p>` : ''}
+      <hr />
+      <h3>Detalles de la obra</h3>
+      ${artworkType ? `<p><strong>Tipo de obra:</strong> ${artworkType}</p>` : ''}
+      ${dimensions ? `<p><strong>Dimensiones:</strong> ${dimensions}</p>` : ''}
+      ${colorPreferences ? `<p><strong>Preferencias de color:</strong> ${colorPreferences}</p>` : ''}
+      ${budget ? `<p><strong>Presupuesto:</strong> ${budget}€</p>` : ''}
+      ${timeline ? `<p><strong>Fecha límite:</strong> ${timeline}</p>` : ''}
+      <p><strong>Descripción / Visión:</strong></p>
+      <p>${description.replace(/\n/g, '<br />')}</p>
+    `,
+  });
+}
+
+/**
  * Confirmación de compra completada al comprador.
  */
 export async function sendOrderConfirmationEmail({ order, painting }) {
