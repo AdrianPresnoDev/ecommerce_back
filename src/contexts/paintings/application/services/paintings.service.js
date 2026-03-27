@@ -1,4 +1,5 @@
 // src/contexts/paintings/application/services/paintings.service.js
+import { Op } from 'sequelize';
 import { sequelize } from '../../../../interfaces/db/mysql-client.js';
 import { presignPut, buildImageUrl } from '../../../../interfaces/aws/s3.service.js';
 import { getS3Config } from '../../../../interfaces/aws/s3.service.js';
@@ -13,10 +14,18 @@ function presentPainting(painting) {
   return p;
 }
 
-export async function listPaintings({ status, category, featured, limit = 50, offset = 0 } = {}) {
+export async function listPaintings({ category, featured, limit = 50, offset = 0 } = {}) {
   const { Painting } = sequelize.models;
-  const where = { active: true };
-  if (status) where.status = status;
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const where = {
+    active: true,
+    [Op.or]: [
+      { status: 'available' },
+      { status: 'reserved' },
+      { status: 'sold', updatedAt: { [Op.gte]: sevenDaysAgo } },
+    ],
+  };
   if (category) where.category = category;
   if (featured !== undefined) where.featured = featured;
 

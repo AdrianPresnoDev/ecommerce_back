@@ -23,4 +23,11 @@ export const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASS, {
   port: DB_PORT,
   dialect: 'mysql',
   logging: false,
+  dialectOptions: {
+    charset: 'utf8mb4',
+  },
+  define: {
+    charset: 'utf8mb4',
+    collate: 'utf8mb4_unicode_ci',
+  },
 });

@@ -8,7 +8,6 @@ export async function getAll(req, res) {
   try {
     const { category, featured, limit = 50, offset = 0 } = req.query;
     const result = await paintingsService.listPaintings({
-      status: 'available',
       category,
       featured: featured !== undefined ? featured === 'true' : undefined,
       limit: Number(limit),
