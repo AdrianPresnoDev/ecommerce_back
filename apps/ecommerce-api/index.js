@@ -63,6 +63,20 @@ async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
     }
     console.log('[api] Charset migration completada');
 
+    // Generar slugs para cuadros que no los tengan
+    const { Painting } = sequelize.models;
+    const withoutSlug = await Painting.findAll({ where: { slug: null } });
+    for (const p of withoutSlug) {
+      const base = p.title.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '').trim()
+        .replace(/\s+/g, '-').replace(/-+/g, '-');
+      let slug = base; let i = 2;
+      while (await Painting.findOne({ where: { slug } })) slug = `${base}-${i++}`;
+      await p.update({ slug });
+      console.log(`[api] Slug generado: ${p.title} → ${slug}`);
+    }
+
     ok('DB conectada y sincronizada');
 
     const app = createServer();

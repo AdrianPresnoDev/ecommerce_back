@@ -12,6 +12,11 @@ export function initPaintingModel(sequelize) {
       type: DataTypes.STRING(200),
       allowNull: false,
     },
+    slug: {
+      type: DataTypes.STRING(220),
+      allowNull: true,
+      unique: true,
+    },
     description: {
       type: DataTypes.TEXT,
       allowNull: true,

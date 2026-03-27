@@ -5,6 +5,30 @@ import { presignPut, buildImageUrl } from '../../../../interfaces/aws/s3.service
 import { getS3Config } from '../../../../interfaces/aws/s3.service.js';
 import { v4 as uuidv4 } from 'uuid';
 
+function toSlug(title) {
+  return title
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+async function generateUniqueSlug(title, excludeId = null) {
+  const { Painting } = sequelize.models;
+  const base = toSlug(title);
+  let slug = base;
+  let counter = 2;
+  while (true) {
+    const where = { slug };
+    if (excludeId) where.id = { [Op.ne]: excludeId };
+    const exists = await Painting.findOne({ where });
+    if (!exists) return slug;
+    slug = `${base}-${counter++}`;
+  }
+}
+
 /**
  * Transforma un cuadro de DB añadiendo las URLs públicas de las imágenes.
  */
@@ -42,9 +66,11 @@ export async function listPaintings({ category, featured, limit = 50, offset = 0
   };
 }
 
-export async function getPainting(id) {
+export async function getPainting(idOrSlug) {
   const { Painting } = sequelize.models;
-  const painting = await Painting.findOne({ where: { id, active: true } });
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+  const where = isUuid ? { id: idOrSlug, active: true } : { slug: idOrSlug, active: true };
+  const painting = await Painting.findOne({ where });
   if (!painting) throw Object.assign(new Error('Cuadro no encontrado'), { status: 404 });
   return presentPainting(painting);
 }
@@ -63,7 +89,8 @@ export async function listAllPaintings({ limit = 50, offset = 0 } = {}) {
 
 export async function createPainting(data) {
   const { Painting } = sequelize.models;
-  const painting = await Painting.create(data);
+  const slug = await generateUniqueSlug(data.title);
+  const painting = await Painting.create({ ...data, slug });
   return presentPainting(painting);
 }
 
@@ -71,6 +98,9 @@ export async function updatePainting(id, data) {
   const { Painting } = sequelize.models;
   const painting = await Painting.findByPk(id);
   if (!painting) throw Object.assign(new Error('Cuadro no encontrado'), { status: 404 });
+  if (data.title && data.title !== painting.title) {
+    data.slug = await generateUniqueSlug(data.title, id);
+  }
   await painting.update(data);
   return presentPainting(painting);
 }
