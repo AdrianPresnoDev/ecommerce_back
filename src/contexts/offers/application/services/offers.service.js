@@ -100,8 +100,8 @@ export async function respondToOffer(id, { action, sellerNote, counterPrice }) {
 
   if (action === 'accept') {
     updates.status = 'accepted';
-    // Marcar el cuadro como vendido
-    await offer.painting.update({ status: 'sold' });
+    // Marcar el cuadro como vendido usando update directo (más fiable que el include)
+    await Painting.update({ status: 'sold' }, { where: { id: offer.paintingId } });
     // En Fase 2 aquí generaremos el Stripe Checkout URL
   } else if (action === 'reject') {
     updates.status = 'rejected';
