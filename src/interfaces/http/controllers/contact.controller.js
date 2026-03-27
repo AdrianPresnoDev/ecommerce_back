@@ -1,5 +1,6 @@
 // src/interfaces/http/controllers/contact.controller.js
 import { sendContactEmail, sendCustomOrderEmail } from '../../../shared/email/email.service.js';
+import { sequelize } from '../../db/mysql-client.js';
 
 export async function submitContact(req, res, next) {
   try {
@@ -9,6 +10,23 @@ export async function submitContact(req, res, next) {
     }
     await sendContactEmail({ name, email, phone, message });
     res.json({ message: '¡Mensaje enviado! Inma se pondrá en contacto pronto.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function subscribe(req, res, next) {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'El email es obligatorio' });
+
+    const { Subscriber } = sequelize.models;
+    const [, created] = await Subscriber.findOrCreate({ where: { email } });
+
+    if (!created) {
+      return res.json({ message: '¡Ya estás suscrito! Te avisaremos de todas las novedades.' });
+    }
+    res.json({ message: '¡Suscripción confirmada! Pronto recibirás las últimas novedades de Inma.' });
   } catch (err) {
     next(err);
   }

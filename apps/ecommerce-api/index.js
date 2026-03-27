@@ -14,6 +14,7 @@ import { initUserModel } from '../../src/contexts/users/infrastructure/persisten
 import { initPaintingModel } from '../../src/contexts/paintings/infrastructure/persistence/painting.model.js';
 import { initOfferModel } from '../../src/contexts/offers/infrastructure/persistence/offer.model.js';
 import { initOrderModel } from '../../src/contexts/orders/infrastructure/persistence/order.model.js';
+import { initSubscriberModel } from '../../src/contexts/subscribers/infrastructure/persistence/subscriber.model.js';
 
 async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
   for (let i = 1; i <= maxRetries; i++) {
@@ -42,6 +43,7 @@ async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
     initPaintingModel(sequelize);
     initOfferModel(sequelize);
     initOrderModel(sequelize);
+    initSubscriberModel(sequelize);
 
     // Relaciones
     const { User, Painting, Offer, Order } = sequelize.models;
