@@ -64,7 +64,6 @@ async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
     console.log('[api] Charset migration completada');
 
     // Generar slugs para cuadros que no los tengan
-    const { Painting } = sequelize.models;
     const withoutSlug = await Painting.findAll({ where: { slug: null } });
     for (const p of withoutSlug) {
       const base = p.title.toLowerCase()
