@@ -54,6 +54,15 @@ async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
     console.log(`[api] Sincronizando modelos (alter=${doAlter})…`);
     await sequelize.sync(doAlter ? { alter: true } : undefined);
 
+    // Asegurarse de que todas las tablas usan utf8mb4 (migración idempotente)
+    const tables = ['users', 'paintings', 'offers', 'orders', 'subscribers'];
+    for (const table of tables) {
+      await sequelize.query(
+        `ALTER TABLE \`${table}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+      ).catch(err => console.warn(`[db] charset migration ${table}:`, err.message));
+    }
+    console.log('[api] Charset migration completada');
+
     ok('DB conectada y sincronizada');
 
     const app = createServer();
