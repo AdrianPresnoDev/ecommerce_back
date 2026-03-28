@@ -83,6 +83,15 @@ jobs:
             -d '{"Name":"aws-ecr-dev","Type":3,"URL":"956403430780.dkr.ecr.eu-west-1.amazonaws.com","Authentication":true,"Username":"AWS","Password":"${{ steps.ecr-token.outputs.token }}"}' \
             "${{ secrets.PORTAINER_URL }}/api/registries/${{ secrets.PORTAINER_ECR_REGISTRY_ID }}"
 
+      - name: Prune dangling images on EC2 (free space before pull)
+        run: |
+          HTTP_CODE=$(curl -sk -X POST \
+            -H "Authorization: Bearer ${{ steps.portainer-auth.outputs.jwt }}" \
+            -w "%{http_code}" -o /tmp/prune.json \
+            "${{ secrets.PORTAINER_URL }}/api/endpoints/${{ secrets.PORTAINER_ENDPOINT_ID }}/docker/images/prune")
+          FREED=$(cat /tmp/prune.json | jq -r '.SpaceReclaimed // 0')
+          echo "Pruned dangling images. Space reclaimed: $((FREED / 1024 / 1024)) MB (HTTP $HTTP_CODE)"
+
       - name: Pull only ecommerce images on EC2 (avoids re-pulling mysql/livekit)
         run: |
           for IMAGE in "$ECR_REGISTRY/$ECR_REPO_API:dev-latest" "$ECR_REGISTRY/$ECR_REPO_GATEWAY:dev-latest"; do
