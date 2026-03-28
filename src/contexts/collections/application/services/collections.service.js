@@ -71,9 +71,9 @@ export async function getCollectionBySlug(slug) {
         ],
       },
       required: false,
-      through: { attributes: ['sortOrder'] },
+      through: { attributes: [] },
     }],
-    order: [[{ model: Painting, as: 'paintings' }, 'CollectionPainting', 'sortOrder', 'ASC']],
+    order: [[{ model: Painting, as: 'paintings' }, 'sortOrder', 'ASC']],
   });
 
   if (!col) throw Object.assign(new Error('Colección no encontrada'), { status: 404 });
@@ -141,9 +141,9 @@ export async function getCollectionPaintings(collectionId) {
     include: [{
       model: Painting,
       as: 'paintings',
-      through: { attributes: ['sortOrder'] },
-      order: [['CollectionPainting', 'sortOrder', 'ASC']],
+      through: { attributes: [] },
     }],
+    order: [[{ model: Painting, as: 'paintings' }, 'sortOrder', 'ASC']],
   });
   if (!col) throw Object.assign(new Error('Colección no encontrada'), { status: 404 });
   return (col.paintings || []).map(p => ({
