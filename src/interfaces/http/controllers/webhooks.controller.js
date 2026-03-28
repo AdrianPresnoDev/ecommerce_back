@@ -1,13 +1,13 @@
 // src/interfaces/http/controllers/webhooks.controller.js
-// Stripe webhook — Phase 2: confirmar pago y marcar cuadro como vendido
+import { handleStripeWebhook } from '../../../contexts/orders/application/services/orders.service.js';
 
 export async function stripeWebhook(req, res) {
-  // TODO (Fase 2): verificar firma con stripe.webhooks.constructEvent()
-  // y procesar checkout.session.completed para:
-  //   1. Marcar Order como 'paid'
-  //   2. Marcar Painting como 'sold'
-  //   3. Marcar Offer como 'paid' (si aplica)
-  //   4. Enviar email de confirmación al comprador
-  console.log('[webhooks] Stripe event recibido (pendiente de implementar en Fase 2)');
-  return res.json({ received: true });
+  const sig = req.headers['stripe-signature'];
+  try {
+    await handleStripeWebhook(req.body, sig);
+    res.json({ received: true });
+  } catch (err) {
+    console.error('[webhook] Error:', err.message);
+    res.status(err.status ?? 400).json({ error: err.message });
+  }
 }

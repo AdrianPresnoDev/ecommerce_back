@@ -14,6 +14,7 @@ import { webhooksRouter } from '../../src/interfaces/http/routes/webhooks.routes
 import { contactRouter } from '../../src/interfaces/http/routes/contact.routes.js';
 import { collectionsRouter } from '../../src/interfaces/http/routes/collections.routes.js';
 import { getAbout, adminUpdateAbout, adminGetAboutImageUploadUrl } from '../../src/interfaces/http/controllers/site-settings.controller.js';
+import { createCheckout } from '../../src/interfaces/http/controllers/orders.controller.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -65,6 +66,7 @@ export function createServer() {
   app.use('/api/v1', contactRouter);
   app.use('/api/v1/collections', collectionsRouter);
   app.get('/api/v1/about', getAbout);
+  app.post('/api/v1/checkout', createCheckout);
 
   // Admin (protegido por API key)
   app.use('/admin/api', adminRouter);
