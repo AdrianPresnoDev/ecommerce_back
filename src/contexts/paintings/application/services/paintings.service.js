@@ -106,9 +106,10 @@ export async function updatePainting(id, data) {
 }
 
 export async function deletePainting(id) {
-  const { Painting } = sequelize.models;
+  const { Painting, Offer } = sequelize.models;
   const painting = await Painting.findByPk(id);
   if (!painting) throw Object.assign(new Error('Cuadro no encontrado'), { status: 404 });
+  await Offer.destroy({ where: { paintingId: id } });
   await painting.destroy();
 }
 
