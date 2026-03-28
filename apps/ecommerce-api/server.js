@@ -12,6 +12,7 @@ import { authRouter } from '../../src/interfaces/http/routes/auth.routes.js';
 import { adminRouter } from '../../src/interfaces/http/routes/admin.routes.js';
 import { webhooksRouter } from '../../src/interfaces/http/routes/webhooks.routes.js';
 import { contactRouter } from '../../src/interfaces/http/routes/contact.routes.js';
+import { collectionsRouter } from '../../src/interfaces/http/routes/collections.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -60,7 +61,8 @@ export function createServer() {
   app.use('/api/v1/auth', authRouter);
   app.use('/api/v1/paintings', paintingsRouter);
   app.use('/api/v1/paintings', offersRouter); // POST /api/v1/paintings/:id/offers
-  app.use('/api/v1', contactRouter);          // POST /api/v1/contact  &  /api/v1/custom-order
+  app.use('/api/v1', contactRouter);
+  app.use('/api/v1/collections', collectionsRouter);
 
   // Admin (protegido por API key)
   app.use('/admin/api', adminRouter);

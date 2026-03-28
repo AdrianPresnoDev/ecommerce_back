@@ -14,6 +14,17 @@ import {
   adminListOffers,
   adminRespondToOffer,
 } from '../controllers/offers.controller.js';
+import {
+  adminList as adminListCollections,
+  adminCreate as adminCreateCollection,
+  adminUpdate as adminUpdateCollection,
+  adminDelete as adminDeleteCollection,
+  adminGetImageUploadUrl as adminGetCollectionImageUploadUrl,
+  adminSetHeroImage as adminSetCollectionHeroImage,
+  adminGetPaintings as adminGetCollectionPaintings,
+  adminAddPainting as adminAddPaintingToCollection,
+  adminRemovePainting as adminRemovePaintingFromCollection,
+} from '../controllers/collections.controller.js';
 
 export const adminRouter = Router();
 
@@ -34,3 +45,18 @@ adminRouter.delete('/paintings/:id/images', adminRemoveImageKey);
 // ─── Ofertas ─────────────────────────────────────────────────────────────────
 adminRouter.get('/offers', adminListOffers);
 adminRouter.patch('/offers/:id', adminRespondToOffer);
+
+// ─── Colecciones ─────────────────────────────────────────────────────────────
+adminRouter.get('/collections', adminListCollections);
+adminRouter.post('/collections', adminCreateCollection);
+adminRouter.patch('/collections/:id', adminUpdateCollection);
+adminRouter.delete('/collections/:id', adminDeleteCollection);
+
+// Hero image
+adminRouter.post('/collections/:id/images/presign', adminGetCollectionImageUploadUrl);
+adminRouter.post('/collections/:id/images', adminSetCollectionHeroImage);
+
+// Cuadros dentro de una colección
+adminRouter.get('/collections/:id/paintings', adminGetCollectionPaintings);
+adminRouter.post('/collections/:id/paintings', adminAddPaintingToCollection);
+adminRouter.delete('/collections/:id/paintings/:paintingId', adminRemovePaintingFromCollection);

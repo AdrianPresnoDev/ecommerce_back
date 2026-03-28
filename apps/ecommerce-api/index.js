@@ -15,6 +15,8 @@ import { initPaintingModel } from '../../src/contexts/paintings/infrastructure/p
 import { initOfferModel } from '../../src/contexts/offers/infrastructure/persistence/offer.model.js';
 import { initOrderModel } from '../../src/contexts/orders/infrastructure/persistence/order.model.js';
 import { initSubscriberModel } from '../../src/contexts/subscribers/infrastructure/persistence/subscriber.model.js';
+import { initCollectionModel } from '../../src/contexts/collections/infrastructure/persistence/collection.model.js';
+import { initCollectionPaintingModel } from '../../src/contexts/collections/infrastructure/persistence/collection-painting.model.js';
 
 async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
   for (let i = 1; i <= maxRetries; i++) {
@@ -44,18 +46,22 @@ async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
     initOfferModel(sequelize);
     initOrderModel(sequelize);
     initSubscriberModel(sequelize);
+    initCollectionModel(sequelize);
+    const CollectionPainting = initCollectionPaintingModel(sequelize);
 
     // Relaciones
-    const { User, Painting, Offer, Order } = sequelize.models;
+    const { User, Painting, Offer, Order, Collection } = sequelize.models;
     Offer.belongsTo(Painting, { foreignKey: 'paintingId', as: 'painting' });
     Order.belongsTo(Painting, { foreignKey: 'paintingId', as: 'painting' });
     Order.belongsTo(Offer, { foreignKey: 'offerId', as: 'offer' });
+    Collection.belongsToMany(Painting, { through: CollectionPainting, foreignKey: 'collectionId', as: 'paintings' });
+    Painting.belongsToMany(Collection, { through: CollectionPainting, foreignKey: 'paintingId', as: 'collections' });
 
     console.log(`[api] Sincronizando modelos (alter=${doAlter})…`);
     await sequelize.sync(doAlter ? { alter: true } : undefined);
 
     // Asegurarse de que todas las tablas usan utf8mb4 (migración idempotente)
-    const tables = ['users', 'paintings', 'offers', 'orders', 'subscribers'];
+    const tables = ['users', 'paintings', 'offers', 'orders', 'subscribers', 'collections', 'collection_paintings'];
     for (const table of tables) {
       await sequelize.query(
         `ALTER TABLE \`${table}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
