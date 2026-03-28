@@ -25,6 +25,11 @@ import {
   adminAddPainting as adminAddPaintingToCollection,
   adminRemovePainting as adminRemovePaintingFromCollection,
 } from '../controllers/collections.controller.js';
+import {
+  getAbout as adminGetAbout,
+  adminUpdateAbout,
+  adminGetAboutImageUploadUrl,
+} from '../controllers/site-settings.controller.js';
 
 export const adminRouter = Router();
 
@@ -60,3 +65,8 @@ adminRouter.post('/collections/:id/images', adminSetCollectionHeroImage);
 adminRouter.get('/collections/:id/paintings', adminGetCollectionPaintings);
 adminRouter.post('/collections/:id/paintings', adminAddPaintingToCollection);
 adminRouter.delete('/collections/:id/paintings/:paintingId', adminRemovePaintingFromCollection);
+
+// ─── Configuración de la página About ────────────────────────────────────────
+adminRouter.get('/settings/about', adminGetAbout);
+adminRouter.patch('/settings/about', adminUpdateAbout);
+adminRouter.post('/settings/about/images/presign', adminGetAboutImageUploadUrl);

@@ -17,6 +17,7 @@ import { initOrderModel } from '../../src/contexts/orders/infrastructure/persist
 import { initSubscriberModel } from '../../src/contexts/subscribers/infrastructure/persistence/subscriber.model.js';
 import { initCollectionModel } from '../../src/contexts/collections/infrastructure/persistence/collection.model.js';
 import { initCollectionPaintingModel } from '../../src/contexts/collections/infrastructure/persistence/collection-painting.model.js';
+import { initSiteSettingsModel } from '../../src/contexts/site-settings/infrastructure/persistence/site-settings.model.js';
 
 async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
   for (let i = 1; i <= maxRetries; i++) {
@@ -48,6 +49,7 @@ async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
     initSubscriberModel(sequelize);
     initCollectionModel(sequelize);
     const CollectionPainting = initCollectionPaintingModel(sequelize);
+    initSiteSettingsModel(sequelize);
 
     // Relaciones
     const { User, Painting, Offer, Order, Collection } = sequelize.models;
@@ -61,7 +63,7 @@ async function connectWithRetry(maxRetries = 10, delayMs = 5000) {
     await sequelize.sync(doAlter ? { alter: true } : undefined);
 
     // Asegurarse de que todas las tablas usan utf8mb4 (migración idempotente)
-    const tables = ['users', 'paintings', 'offers', 'orders', 'subscribers', 'collections', 'collection_paintings'];
+    const tables = ['users', 'paintings', 'offers', 'orders', 'subscribers', 'collections', 'collection_paintings', 'site_settings'];
     for (const table of tables) {
       await sequelize.query(
         `ALTER TABLE \`${table}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
