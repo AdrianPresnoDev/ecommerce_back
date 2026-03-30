@@ -68,6 +68,25 @@ export function createServer() {
   app.get('/api/v1/about', getAbout);
   app.post('/api/v1/checkout', createCheckout);
 
+  // Admin login (sin API key, devuelve la key si email+password válidos)
+  app.post('/admin/api/login', (req, res) => {
+    const { email, password } = req.body || {};
+    const ALLOWED_EMAILS = [
+      'contact@adrianpresno.com',
+      'sarahma90@gmail.com',
+      'inmaalsa@gmail.com',
+    ];
+    const ADMIN_PASSWORD = 'LagunyCanek';
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email y contraseña requeridos' });
+    }
+    if (!ALLOWED_EMAILS.includes(email.toLowerCase().trim()) || password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ error: 'Credenciales incorrectas' });
+    }
+    return res.json({ apiKey: process.env.ADMIN_API_KEY });
+  });
+
   // Admin (protegido por API key)
   app.use('/admin/api', adminRouter);
 
