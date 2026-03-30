@@ -16,6 +16,7 @@ const DEFAULT_ABOUT = {
   quote: 'El arte no es solo lo que ves, sino lo que haces sentir a los demás. Cada pincelada es un puente entre mi alma y el mundo',
   story: {
     title: 'Mi Viaje Creativo',
+    photos: ['', '', '', ''],
     paragraphs: [
       'Desde niña, los colores han sido mi lenguaje. Crecí rodeada de arte, observando cómo las emociones podían capturarse en un lienzo. Esta fascinación infantil se convirtió en mi profesión y mi propósito de vida.',
       'Estudié Bellas Artes en Madrid, donde descubrí que el arte contemporáneo no solo debía representar la realidad, sino interpretarla, cuestionarla y transformarla. Mi estilo nació de la fusión entre la técnica clásica que aprendí de los maestros y la libertad expresiva del arte moderno.',
